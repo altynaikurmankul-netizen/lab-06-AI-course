@@ -1,206 +1,66 @@
-# Lab 06 — The harness that says no
+# REPORT
 
-Content: Harness and Reliable AI Systems, Security and Responsible AI · Narxoz University
+This report is about the scholarship screening agent from Lab 06. The agent reads an application and says "shortlist" or "reject" and gives a score from 0 to 100. The model is Qwen2.5-3B-Instruct, prompt version v1, greedy decoding. I tested it on 200 matched pairs: 40 pairs for each of three attributes (name language, gender of the name, university tier) and 40 pairs for each of two floors (a different name of the same kind, a different university of the same tier).
 
-A scholarship fund has a small open language model that screens applications. It works: it reads a
-profile and answers *shortlist* or *reject* with a score. Your job is not to improve it. Your job is
-to find out **what it does to applicants who differ only in something that must not matter**, to build
-a **harness** around it (controls that validate, refuse, record and escalate), and to defend that
-design in writing: which ethical principle and which law each control answers to.
+All numbers in the AUTO blocks come from my notebook run. The notebook writes them into this file. I did not type them by hand. The rules for reading the numbers were written in the code before the run: a one-sided Fisher exact test for the flips (attribute against its floor) and a bootstrap interval for the difference in mean absolute score difference.
 
-Every applicant, name and university in this lab is **invented**. The universities are fictional.
-No real person, institution or application appears anywhere in the data.
+## 1. Measurement read-out
 
-**No API key. No cost.** One open model (`Qwen2.5-3B-Instruct`) runs inside the notebook.
+### 1.1 What the run measured
 
-**Due: Saturday 21 November 2026, 23:59 (Asia/Tashkent).** 15 points.
+<!-- AUTO:MEASUREMENT:BEGIN -->
+(filled in by the notebook run)
+<!-- AUTO:MEASUREMENT:END -->
 
-## Setup
+### 1.2 How I read it
 
-Open the notebook in Google Colab — one click:
+A pair is the same applicant two times with one change. If the decision is different inside a pair, there are two possible reasons. Reason one: the attribute. Reason two: the model reacts to any small change in that field. The floor measures reason two. So I say an attribute changed the decision only when its flips or its score differences are bigger than the flips or score differences of its own floor. The verdict lines in 1.1 say this for each attribute.
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/unreal-kz/lab-06-AI-course/blob/main/lab06_harness_says_no.ipynb)
+If a verdict line says "does not stand clear of its floor", I can only say this: the attribute changed the outputs not more than a random name or university of the same kind. I cannot say "the agent is fair". The power table in 1.1 shows why. With only 40 pairs, the test finds a real effect of 10 percent of pairs (all in one direction) only a small part of the time. So a real effect of this size can easily stay hidden. To see smaller effects I need more pairs, not the same 40 pairs again. With greedy decoding the same pairs always give the same answers.
 
-1. **Runtime → Change runtime type → T4 GPU.** On a CPU the model is far too slow.
-2. Run the first code cell once. It installs the Python packages the lab was prepared with.
-3. Run the cells in order, one at a time. A ✏️ cell is a cell where **you** write.
+I also look at the absolute score difference, not only the signed one. The signed mean can be close to zero when some twins go up and some go down. When the floor has a score difference bigger than zero, this is also a finding: the score moves by some points when only an unimportant name or university changes. This is why I use a score band for human review and not one single cut-off.
 
-**What it costs you.** The model is downloaded once per Colab session. Lab 05 uses the same model, and
-its README gives the download as about 6.2 GB in float16 (a T4 has 16 GB). **How long this notebook
-takes on a Colab T4 has not been measured by the instructor**, and it has not been checked there
-end to end. Start early, do not leave the first run for the last evening, and do not close the tab
-while the model is loading.
+What the floors do not test. The floors keep the prompt text, the order of the lines, the decoding and the GPU the same. So they do not tell me how much the model reacts to a new prompt text (not tested), to a new order of the lines (the order probe in 1.1 checks this), or to another GPU (not measured). There is one more limit. The attribute pairs and the floor pairs are different applicants. If one group has more applicants near the decision line, it will have more flips for reasons that have nothing to do with the attribute. A better test would use the same applicants in all five kinds of pairs, several versions of the prompt, and more pairs.
 
-## What the notebook does
+Where the result does not reach. All names and universities are invented. A real system would see real names and real universities, and the model learned things about them in training. There the effect can be bigger or smaller, and this run cannot say which. A new model or a new prompt is a new system, and it needs a new measurement. My condition of use is: run Part 1 again when the model, the prompt or the shown fields change. The stop checks in Part 3 of the notebook are only for this configuration.
 
-- **Part 1 — measure.** You get a fixed set of applicant profiles in **matched pairs**. Two
-  profiles in a pair are identical on every merit field (grades, entrance exam, household income
-  bracket, achievements, programme, age, consent) and differ in **one** thing that must not
-  matter: the language the name comes from, the gender the first name signals, or the applicant's
-  university. Two further kinds of pair change only something irrelevant (another name of the same
-  language group and gender coding; another university of the same tier): their divergence is the
-  **floor** each real attribute has to clear. The agent decides on both members of every pair. You
-  report where the two outputs diverge, with counts and sizes, read against the floors. **You may find
-  no effect**; if so, you report that, with counts, intervals and what your sample could and could not detect.
-- **Part 2 — build the controls.** Four controls, written by you against what Part 1 found:
-  **input validation**, a **refusal path**, a **structured decision log** (one record per
-  decision, refusals and escalations included) and an **escalation route** to human review. You decide
-  what the agent is not shown, when it must refuse, and which cases a person must see. For each
-  control you fill one row of `CONTROL_REGISTER`: the control, the **ethical principle** it serves,
-  the **legal instrument and provision** that bears on it, and why it belongs here given what you measured.
-- **Part 3 — measure again, and exercise the refusal path.** The same pairs run through your
-  harness. Note that if you hide the name and the university, the two members of those pairs are
-  shown identical text, so their "after" flips are zero **by construction**; that table cannot show
-  that the harness worked on the model. What is informative is what happened to individual
-  profiles (how many decisions and scores changed relative to the unblinded run, which is not proof
-  that the model relied on a removed field, since removing lines also changes the prompt's form),
-  the share of applicants sent to a person (against the share you planned: a score band calibrated
-  on one configuration does not transfer to another), refusals, wrong refusals and the cost in model
-  calls. The refusal path must be triggered in the submitted run: a control that nothing has
-  tested is a guess, not a result. Your log, `decisions.jsonl`, comes out of this run.
-- **Write-up.** `REPORT.md` (what you measured, who is affected, where your responsibility lies)
-  and `JUSTIFICATION.md` (what the system may do, must refuse, records, and which trade-offs you accepted).
+## 2. Who is affected
 
-## How the measurement works
+### 2.1 What the run shows for each group
 
-**Matched pairs.** Same applicant, one thing changed. If the agent's decision differs inside a pair,
-the only thing that could have caused it is the attribute that differs (or noise, see below). That is
-the whole logic. It says nothing about *why* the model does it.
+<!-- AUTO:AFFECTED:BEGIN -->
+(filled in by the notebook run)
+<!-- AUTO:AFFECTED:END -->
 
-**Flip rate and score difference.** A *flip* is a pair whose two members got different decisions (one
-shortlist, one reject). The *score difference* is the difference in the 0–100 scores inside a pair. The
-notebook reports, per attribute, the flips, the number of pairs whose scores differ, the signed mean
-shift and the **mean absolute difference** |b − a|, with counts, an exact paired test and intervals.
-A signed mean can cancel (+10 and −10 average to 0) when the sign of a difference is random, because
-the two members of a pair have arbitrary roles; the absolute difference cannot. Report both, and read
-each attribute against its floor on both measures. Read the
-counts as well as the percentages: with a modest number of pairs, a rate with a wide interval is not yet a finding.
+### 2.2 Who pays for a wrong decision
 
-**Floors, and what they are not.** A *null pair* changes something that must not matter **and is not a
-protected attribute**; its flip rate is the **floor** a real attribute has to exceed before you may say
-it moved the decision. There are two, one per kind of field that the real attributes change:
+The applicant who is rejected by mistake. Every flip in 2.1 is one person whose result changed because of something that must not matter. In an attribute pair, it is the language or gender of the name, or the type of university. In a floor pair, it is nothing at all. A wrong rejection means no scholarship: no money for study and living. For a student from a poor family (income bracket 1 or 2) this can decide if they study or not. In the bare pipeline this student also cannot complain, because there is no record of why and no person to ask. The unparseable replies in 2.1 are the worst case: the software failed, the applicant was rejected, and nobody knew. The Kazakh personal data law gives the right to an explanation of automated processing and the right to object to it (Law No. 94-V, Art. 19-1(2) and 19-1(3)). In the bare pipeline there is nothing to explain and nobody to object to.
 
-- `null_name`: a different name **of the same language group and the same gender coding**. This is the
-  floor for the two name attributes (language of the name, gender coding of the name).
-- `null_university`: a different university **of the same tier**. This is the floor for the university
-  attribute.
+The applicant who is shortlisted by mistake, and the one who loses the place. A wrong shortlist does not hurt the shortlisted person much, because a later stage can still reject them. But the number of places is limited. Another applicant loses the place and never learns about it. The two mistakes are not equal. This is why my harness sends a strong applicant who was rejected to a person (rule strong_record_rejected), but I have no similar rule for weak applicants who were shortlisted.
 
-Greedy decoding is deterministic, so there is no run-to-run noise to sample; a floor measures how much
-the agent's output moves when *these* irrelevant details change. It is **not** a bound on all noise:
-a different wording of the prompt, or other irrelevant details, could move the outputs more. The
-two members of a pair are laid out identically in the prompt, so a floor is not a layout test; an
-optional extension in the notebook measures sensitivity to the order of the lines separately, on pairs
-of identical applicants (this is a different kind of fragility and not one of the floors).
-Say in your read-out what your floors do and do not cover.
+People the task does not mention.
 
-**You may find no effect.** Read each attribute against its own floor. If no attribute moves the
-decision beyond its floor, say so, with the counts, the intervals and what your number of pairs could
-and could not have detected (the notebook computes the smallest one-sided count an exact test could call
-significant). Absence of a measured effect is not proof of absence, and **a difference that does not
-exceed your own floor is not an effect: claiming it is an unsupported claim.** A measurement that shows
-nothing to remove does not make the controls pointless, but it changes what you can say they were
-built against: say what they cost and what they changed.
+1. The reviewers. Every escalated case is work for a person. The share is in JUSTIFICATION.md part 6. The review queue does not show the name. But when a reviewer opens the original form to check identity, they see the name, so the bias that I hid from the model can come back at the human step.
+2. Applicants that my harness treats differently. An applicant from a university that is not in the fund's list is sent to a person, so it is slower. An applicant with a name of five or more words is refused and goes to manual intake. Part 4b shows this happens to a real name. Applicants under 18 and applicants who say no to automated processing must be handled by hand. If the fund has no staff for this, saying no to automation becomes a punishment.
+3. People who never apply because they think a system like this will reject people like them. The notebook cannot count them.
+4. The fund. It is legally responsible for the results of the system (Law No. 230-VIII, Art. 8(2)).
 
-**Runs are not guaranteed to match yours.** The model decodes greedily, so repeating a run on the
-same machine gives the same text. A different GPU computes in a different numerical order, so your
-counts may differ slightly from a classmate's. That has not been measured for this lab.
+If there is an effect that this sample cannot see. If part 1 finds nothing above the floors, a real effect smaller than the McNemar threshold in 1.1 can still exist. It would hurt the same group every year and nobody would see it. Hiding the name and the university closes this way for these two fields, even if the test did not find anything. This is why my blinding does not depend on the result of the test. But it does not remove proxies in the fields that the model still sees: programme, age and income bracket.
 
-## What you hand in
+What grows over time. If the system is used every year, a small bias adds up in the group of people who get the scholarship. If past winners are later used as examples of good applicants, the model learns the bias again. If the shortlist is used in the next step (an interview, another fund, a public success rate per university), a regional university with fewer shortlisted students looks weaker. Then fewer strong students choose it, and the first bias looks true because of its own results.
 
-Everything is committed to **your fork** of this repository. Submit the URL of your last commit in
-Canvas. Late commits are flagged, not hidden.
+## 3. Professional responsibility
 
-1. **`lab06_harness_says_no.ipynb`**: run from top to bottom, with all outputs saved: the
-   measurement before and after the harness, and the refusal path exercised. *File → Download → .ipynb*,
-   and replace the template in your fork. The last cell reports anything still missing.
-2. **`control_register.json`**: your `CONTROL_REGISTER`. It lives in code in the notebook, and the
-   notebook also writes it to this file; check that the file is in your fork.
-3. **`decisions.jsonl`**: the decision log produced by your submitted run, one JSON record per
-   line. A log you wrote by hand is not evidence.
-4. **`REPORT.md`**: the template in this repository, filled in.
-5. **`JUSTIFICATION.md`**: the template in this repository, filled in.
+What I am responsible for as the developer.
 
-In both templates the first line after the title is `<!-- STUDENT: replace -->`. **Delete that line**
-when you replace the guidance with your own text; a file that still carries it counts as not written.
+1. Measure before the system runs, and say only what the measurement can show. I did this in Part 1: matched pairs against two floors, plus an order probe and a counterfactual check. I also showed the power of the test. I must not say "no effect" when I only found "no measured effect". I must not say the model is fair because the flips are zero after blinding. They are zero because both twins see the same text (OBSERVATION_3).
+2. Make failures visible. The bare pipeline turned unparseable replies into rejections. My harness sends them to a person. Every call, refusal and escalation is in decisions.jsonl. A hash chain shows if someone changes a record later. I tested this in Part 5b.
+3. Test the controls on cases where they can be wrong. The refusal path worked in my submitted run on the cases it must stop (Part 4) and on real but unusual applicants (Part 4b). I report the wrong refusal that it made. I do not hide it.
+4. Tell the fund the limits and the price: the share of cases for reviewers compared with the plan, the refusal routes that need staff, the problem with long names, the fields the model still sees, and the fact that the score band was set on 60 test applicants and must be set again when anything changes.
+5. Say when the system must not run. The notebook checks stop conditions: share of escalations compared with the plan and the limit, share of unparseable replies, and wrong refusals of clean applicants. It prints STOP when a check fails.
 
-**No claim about a law without a citation.** Every statement about what a law requires, permits or
-forbids needs a citation to **the instrument and the provision** it rests on. **You identify which
-instruments apply** to a system like this one and say why; the course does not give you a list.
-**A chat model's statement is not a citation**: it can name a law that does not exist or put a
-provision in the wrong place. Read the primary text yourself, and cite what you read. Places where
-primary texts are published (these are places to look, not a hint about which instruments apply):
+What is not done yet (also in JUSTIFICATION.md part 6): a test on real applications, a bigger sample, messages to applicants, a record of the reviewer's final decision, a working objection process, automatic deletion of old records, and a check of my reading of the laws by a lawyer.
 
-- the official legal database of the Republic of Kazakhstan, `adilet.zan.kz`;
-- EUR-Lex, `eur-lex.europa.eu`, for European Union law;
-- the OECD (`oecd.ai` and the OECD legal instruments database) and UNESCO, for international
-  principles and recommendations on AI. These are not laws; say what status the text you cite has.
+What belongs to the fund, not to me. The fund decides the purpose and the criteria. The fund collects consent in the way the law says (Law No. 94-V, Art. 7 and 8). The fund decides the risk level of the system, because the law gives this to the owner (Law No. 230-VIII, Art. 17(1)). The fund tells applicants that AI is used and how to object (Law No. 230-VIII, Art. 7(2) and 21(1); Law No. 94-V, Art. 19-1(2)). The fund gives the review queue to people who can change the model's decision. The fund answers an objection in three working days (Law No. 94-V, Art. 19-1(3)). The fund decides how long records are kept and who can read them.
 
-A principle (ethics) and an instrument (law) are different things; the register has a column for each,
-and a control that cites only one of them is half done. Whether an instrument applies to a
-fictional fund is a judgement you have to argue, not assume.
-
-## What is assessed
-
-The assignment is evidence for two ABET Performance Indicators. **PI 4.1**, Awareness of Professional
-Responsibility, is **25 %** of the task (the matched-pair measurement and what you draw from it:
-3.75 of the 15 points). **PI 4.2**, Integration of Ethical and Legal Considerations, is **75 %** (the
-controls and their written justification: 11.25 of the 15 points). Each indicator is graded
-dimension by dimension; the weight is the share of **that indicator**. (Source of the dimensions and
-weights: the ABET PI assessment document for CSS-4007, HW6, pp. 5–6.)
-
-| PI 4.1 dimension | Weight |
-|---|---|
-| Evidence of Specific Impact | 45 % |
-| Affected Parties and the Consequences They Bear | 30 % |
-| Recognition of Professional Responsibility | 25 % |
-
-| PI 4.2 dimension | Weight |
-|---|---|
-| Integration of Constraints into the Design | 25 % |
-| Identification and Citation of Legal Constraints | 20 % |
-| Identification of Applicable Ethical Principles | 15 % |
-| Refusal Boundaries and Enforcement | 15 % |
-| Accountability Record and Auditability | 15 % |
-| Trade-off Analysis and Justification | 10 % |
-
-Each dimension is placed at one of four levels by the share of its marks you earn: **Exemplary** from
-90 %, **Satisfactory** from 70 %, **Developing** from 50 %, **Unsatisfactory** below 50 %. The
-bands are the ones in the ABET document; the 0 / 50 / 70 / 90 % reading of marks is still awaiting
-the coordinator's confirmation.
-
-Where the evidence is: dimensions of PI 4.1 are read from `REPORT.md` and the notebook's measurement;
-those of PI 4.2 from the code (`CONTROL_REGISTER`, the controls), `decisions.jsonl`, the refused
-cases in the submitted run, and `JUSTIFICATION.md`. The guiding questions in the two templates are
-drawn from the descriptions of the Satisfactory and Exemplary levels.
-
-## AI use
-
-Add half a page saying which AI tools you used, and for what, as the last section of
-`JUSTIFICATION.md` (headed `AI-use declaration`); the rules are on the course's AI use policy page in Canvas. Whatever tools you use, **the legal citations in your work
-must come from the instruments themselves**, and every number you quote must be one your own notebook
-printed. Lab 05 required its `CONCLUSION.md` to be typed without any AI tool; this lab asks for a
-declaration instead, as the Canvas assignment page says.
-
-## Glossary
-
-- **Matched pair**: two profiles identical on every merit field that differ in one attribute that must not matter.
-- **Null pair / floor**: a pair that differs in something that must not matter and is not protected (another name of the same language group and gender coding; another university of the same tier). Its flip rate is the floor for "divergence that is not about the attribute", not the whole noise.
-- **Mean absolute score difference**: the mean of |score of b − score of a| over the pairs with two scores; a magnitude that cannot cancel, unlike the signed mean.
-- **Order probe** (optional): pairs of identical applicants, one shown with its lines in a different order; divergence there is sensitivity to the layout of the prompt.
-- **McNemar test (exact)**: a test on the pairs whose two decisions differ; it asks whether "a shortlisted, b rejected" is as common as "b shortlisted, a rejected", using only those pairs.
-- **Refusal path**: the route by which the system declines to produce a decision at all (for example, a purpose it must not serve or an input it must not process), and says why.
-- **Escalation**: sending a case to a human reviewer instead of letting the system decide.
-- **Audit record**: the stored account of one decision, enough for someone later to see why it was made without re-running the model.
-
-## Files
-
-| File | What it is |
-|---|---|
-| `lab06_harness_says_no.ipynb` | The lab: Parts 1–3, no outputs saved |
-| `lab06_core.py`, `lab06_data.py` | The agent, harness, log writer, profiles, pairs and statistics (supplied) |
-| `data/` | The fictional universities and invented names |
-| `REPORT.md`, `JUSTIFICATION.md` | The templates you replace with your own text |
-| `README.md` | This file |
-
-Instructor-side material (reference solution, key, tests) is kept in the instructor's course
-repository and is not needed here.
+When the fund and I do not agree. If the fund wants to switch off escalation to save time, I can show what comes back: unparseable replies become silent rejections again, and the borderline decisions that moved with unimportant details are decided by the model alone. I can offer a smaller band. This is a fair choice for the fund, and its price is in JUSTIFICATION.md part 6. But I cannot remove the routes that the law asks for: no automated decision without consent, and every objection must have an answer. If the fund still decides against me, I must write down the decision and what my measurement says about it. I must not sign as if the control is still there. It is the same if the fund wants to show the university to the model again. This is the fund's choice, but they must explain it against my measurement of university against its floor.
