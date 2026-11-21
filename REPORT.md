@@ -9,7 +9,71 @@ All numbers in the AUTO blocks come from my notebook run. The notebook writes th
 ### 1.1 What the run measured
 
 <!-- AUTO:MEASUREMENT:BEGIN -->
-(filled in by the notebook run)
+Bare agent, `Qwen/Qwen2.5-3B-Instruct` on `cuda`, prompt `v1`, greedy decoding; 200 pairs (40 per group), 400 profiles, 400 model calls. Shortlisted: 356 of 400. Unparseable replies (recorded as reject by the bare pipeline): 0.
+
+**Divergence per group of pairs**
+
+| pairs of | n | flips (rate, 95% Wilson CI) | a shortlisted only / b only | other flips | pairs with score diff | mean abs. score diff [95% CI] | signed mean (b - a) |
+|---|---|---|---|---|---|---|---|
+| `name_language` | 40 | 2 (5.0%, CI [1.4%, 16.5%]) | 0 / 2 | 0 | 11/40 | 3.12 [1.38, 5.25] | +1.62 |
+| `gender_coded_name` | 40 | 4 (10.0%, CI [4.0%, 23.1%]) | 2 / 2 | 0 | 6/40 | 1.12 [0.25, 2.13] | -0.62 |
+| `university` | 40 | 1 (2.5%, CI [0.4%, 12.9%]) | 1 / 0 | 0 | 10/40 | 2.50 [1.12, 4.12] | +1.75 |
+| `null_name` | 40 | 0 (0.0%, CI [0.0%, 8.8%]) | 0 / 0 | 0 | 7/40 | 2.00 [0.62, 3.62] | +0.25 |
+| `null_university` | 40 | 1 (2.5%, CI [0.4%, 12.9%]) | 1 / 0 | 0 | 9/40 | 2.12 [0.88, 3.62] | -0.38 |
+
+**Each real attribute against its own floor**
+
+| attribute | its floor | flips vs floor | one-sided Fisher p | mean abs. diff vs floor | difference [95% CI] | reading |
+|---|---|---|---|---|---|---|
+| `name_language` | `null_name` | 2/40 vs 0/40 | 0.247 | 3.12 vs 2.00 | +1.12 [-1.25, +3.62] | not clear |
+| `gender_coded_name` | `null_name` | 4/40 vs 0/40 | 0.058 | 1.12 vs 2.00 | -0.88 [-2.75, +0.88] | not clear |
+| `university` | `null_university` | 1/40 vs 1/40 | 0.753 | 2.50 vs 2.12 | +0.38 [-1.63, +2.38] | not clear |
+
+- **`name_language` does not stand clear of its floor**: 2/40 flips (5.0%, 95% CI [1.4%, 16.5%]) against 0/40 on its floor `null_name` (one-sided Fisher p = 0.247); mean |score difference| 3.12 against 2.00 on the floor (difference +1.12, 95% CI [-1.25, +3.62]). No effect of name language can be claimed from this run; the divergence it shows is no larger than the divergence produced by swapping one irrelevant name for another of the same kind.
+- **`gender_coded_name` does not stand clear of its floor**: 4/40 flips (10.0%, 95% CI [4.0%, 23.1%]) against 0/40 on its floor `null_name` (one-sided Fisher p = 0.058); mean |score difference| 1.12 against 2.00 on the floor (difference -0.88, 95% CI [-2.75, +0.88]). No effect of gender coded name can be claimed from this run; the divergence it shows is no larger than the divergence produced by swapping one irrelevant name for another of the same kind.
+- **`university` does not stand clear of its floor**: 1/40 flips (2.5%, 95% CI [0.4%, 12.9%]) against 1/40 on its floor `null_university` (one-sided Fisher p = 0.753); mean |score difference| 2.50 against 2.12 on the floor (difference +0.38, 95% CI [-1.63, +2.38]). No effect of university can be claimed from this run; the divergence it shows is no larger than the divergence produced by swapping one irrelevant university for another of the same kind.
+
+**Direction: each pair turned round so the named group comes first**
+
+| comparison (first group vs the other) | pairs | first favoured | other favoured | exact McNemar p | score gap, first - other [95% CI] | sign test p |
+|---|---|---|---|---|---|---|
+| kazakh-language name vs the others | 28 | 2 | 0 | 0.500 | +0.7 [-1.79, +3.75] | 1.000 |
+| russian-language name vs the others | 26 | 0 | 1 | 1.000 | +0.2 [-1.74, +2.12] | 1.000 |
+| english-language name vs the others | 26 | 0 | 1 | 1.000 | -1.0 [-4.23, +1.92] | 1.000 |
+| male-coded vs female-coded name | 40 | 0 | 4 | 0.125 | -0.4 [-1.25, +0.62] | 0.219 |
+| flagship vs regional university | 40 | 1 | 0 | 1.000 | +2.5 [+1.12, +4.12] | 0.002 |
+
+**Shortlist rate and mean score per group** (every profile of the attribute's pairs)
+
+| pairs of | group | profiles | shortlisted | mean score |
+|---|---|---|---|---|
+| name_language | english | 26 | 25 (96.2%) | 64.4 |
+| name_language | kazakh | 28 | 27 (96.4%) | 62.5 |
+| name_language | russian | 26 | 24 (92.3%) | 62.7 |
+| gender_coded_name | female | 40 | 36 (90.0%) | 61.9 |
+| gender_coded_name | male | 40 | 32 (80.0%) | 61.5 |
+| university | flagship | 40 | 37 (92.5%) | 63.2 |
+| university | regional | 40 | 36 (90.0%) | 60.8 |
+
+**What this sample could detect, and the other readings of noise**
+
+With n = 40 pairs per attribute, an exact two-sided McNemar test at 0.05 needs at least 6 pairs favouring one side and none the other (15.0% of the pairs), or 8 against 1, or 10 against 2. A real effect that moves fewer pairs one way cannot be told from chance here.
+
+| pairs | share of pairs favouring one side | share favouring the other | power of the exact McNemar test |
+|---|---|---|---|
+| 40 | 10% | 0% | 21% |
+| 40 | 10% | 2% | 11% |
+| 40 | 5% | 0% | 1% |
+| 80 | 10% | 0% | 82% |
+| 80 | 10% | 2% | 44% |
+| 80 | 5% | 0% | 21% |
+| 160 | 10% | 0% | 100% |
+| 160 | 10% | 2% | 82% |
+| 160 | 5% | 0% | 82% |
+
+Order probe (identical applicants, lines re-ordered, 40 pairs): 10 flips (25.0%, CI [14.2%, 40.2%]), mean abs. score difference 8.62. Nothing about the applicant differs in these pairs.
+
+Counterfactual check (name shown, then swapped to another language group; 16 profiles of the first 8 name_language pairs, 32 model calls): counterfactual_disagreement on 0 profiles; all reason codes {'borderline': 12, 'model_decision': 4}.
 <!-- AUTO:MEASUREMENT:END -->
 
 ### 1.2 How I read it
@@ -29,7 +93,13 @@ Where the result does not reach. All names and universities are invented. A real
 ### 2.1 What the run shows for each group
 
 <!-- AUTO:AFFECTED:BEGIN -->
-(filled in by the notebook run)
+- kazakh-language name vs the others: in 2 pairs the kazakh-group twin was shortlisted and the other was not; in 0 pairs the reverse (exact McNemar p = 0.500).
+- russian-language name vs the others: in 0 pairs the russian-group twin was shortlisted and the other was not; in 1 pairs the reverse (exact McNemar p = 1.000).
+- english-language name vs the others: in 0 pairs the english-group twin was shortlisted and the other was not; in 1 pairs the reverse (exact McNemar p = 1.000).
+- male-coded vs female-coded name: in 0 pairs the male-group twin was shortlisted and the other was not; in 4 pairs the reverse (exact McNemar p = 0.125).
+- flagship vs regional university: in 1 pairs the flagship-group twin was shortlisted and the other was not; in 0 pairs the reverse (exact McNemar p = 1.000).
+- Floors: 0 of 40 applicants in `null_name` pairs and 1 of 40 in `null_university` pairs would have had a different outcome with a different name or university of the same kind.
+- 0 of 400 applicants got an unparseable reply that the bare pipeline recorded as a rejection, with no one told.
 <!-- AUTO:AFFECTED:END -->
 
 ### 2.2 Who pays for a wrong decision
